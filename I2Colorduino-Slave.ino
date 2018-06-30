@@ -7,6 +7,6 @@ void setup()
 
 void loop()
 {
-  ;
+  I2Colorduino.Dispatch();
 }
 
