@@ -29,8 +29,10 @@ class JQueueBuffer {
     JQueueBuffer();
     static unsigned char getNextInputIndex();
     static unsigned char getNextOutputIndex();
+    static unsigned char peekNextInputIndex();
+    static unsigned char peekNextOutputIndex();
     static unsigned char getLength();
-    static unsigned char getNextIndex(unsigned char &);
+    static unsigned char getNextIndex(unsigned char &, unsigned char _mode = 0);
     static void push(unsigned char *);
     static void pop(unsigned char *);
 };

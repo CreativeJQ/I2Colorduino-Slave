@@ -16,21 +16,29 @@ unsigned char JQueueBuffer::getLength() {
 }
 
 unsigned char JQueueBuffer::getNextInputIndex() {
-  return JQueue.getNextIndex(nextInputIndex);
+  return JQueue.getNextIndex(nextInputIndex, 1);
 }
 
 unsigned char JQueueBuffer::getNextOutputIndex() {
+  return JQueue.getNextIndex(nextOutputIndex, 1);
+}
+
+unsigned char JQueueBuffer::peekNextInputIndex() {
+  return JQueue.getNextIndex(nextInputIndex);
+}
+
+unsigned char JQueueBuffer::peekNextOutputIndex() {
   return JQueue.getNextIndex(nextOutputIndex);
 }
 
-unsigned char JQueueBuffer::getNextIndex(unsigned char & i) {
+unsigned char JQueueBuffer::getNextIndex(unsigned char & i, unsigned char _mode = 0) {
   unsigned char tmpIndex = i;
   if (tmpIndex < JQUEUE_BUFFER_MAX_QUEUE - 1) {
-    i = ++tmpIndex;
+    if (_mode) i = ++tmpIndex;
     return tmpIndex;
   }
   else {
-    i = 0;
+    if (_mode) i = 0;
     return JQUEUE_BUFFER_MAX_QUEUE - 1;
   }
 }

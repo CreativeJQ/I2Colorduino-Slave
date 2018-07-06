@@ -32,6 +32,9 @@ void I2ColorduinoObject::Init() {
   unsigned char whiteBalVal[3] = {wb_r, wb_g, wb_b};
   Colorduino.SetWhiteBal(whiteBalVal);
 
+  // Init MatrixFont Params
+  InitMatrixFont();
+
   // Join I2C Bus as Slave Device
   Wire.begin(addr);
 
@@ -43,6 +46,11 @@ void I2ColorduinoObject::Init() {
 
   // Command Dealing Callback
   Wire.onReceive(I2Colorduino.receiveEvent);   // define the receive function for receiving data from master. After end_transmission
+
+}
+
+
+void I2ColorduinoObject::InitMatrixFont() {
 
 }
 
@@ -105,7 +113,9 @@ void I2ColorduinoObject::updateDisplay2(byte params, byte * pixs) {
 
 // Dispatcher
 void I2ColorduinoObject::Dispatch() {
-  if (JQueue.getLength() == 0){ return;}
+  if (JQueue.getLength() == 0) {
+    return;
+  }
   byte tmpCommand[32];
   JQueue.pop(tmpCommand);
 
@@ -127,11 +137,16 @@ void I2ColorduinoObject::Dispatch() {
   cccc.r = 255;
   cccc.g = 255;
   cccc.b = 255;
+
+  PixelRGB cccc2;
+  cccc2.r = 255;
+  cccc2.g = 255;
+  cccc2.b = 255;
   byte * tttt;
   //byte a[1] = {"0a"};
   byte a = 48;
 
-  
+
   // Act Command
   switch (action) {
     case I2C_ACTION_RELOAD:
@@ -143,7 +158,8 @@ void I2ColorduinoObject::Dispatch() {
     case I2C_ACTION_UPDATE_REFRESH:
       //I2Colorduino.updateMatrixFontText(1 & 0x7F, 5, 3, cccc);
       //I2Colorduino.updateMatrixFontText(textt & 0x7F, 0, 0, cccc);
-      I2Colorduino.updateMatrixFontText(textt++ & 0x7F, 4, 0, cccc);
+      I2Colorduino.updateMatrixFontText(textt & 0x7F, 0, 1, cccc);
+      I2Colorduino.updateMatrixFontText(textt++ & 0x7F, 3, 0, cccc2, MATRIX_FONT_CFG_5x7_INDEX);
       I2Colorduino.Refresh();
       break;
     case I2C_ACTION_OFFSET:
@@ -151,6 +167,14 @@ void I2ColorduinoObject::Dispatch() {
       break;
     case I2C_ACTION_CONFIG:
       I2Colorduino.Config(param, pixels[0], pixels[1], pixels[2], pixels[3]);
+      break;
+    case I2C_ACTION_UPDATE_TEXT:
+      I2Colorduino.updateMatrixFontText(textt & 0x7F, 0, 0, cccc);
+      I2Colorduino.updateMatrixFontText(textt++ & 0x7F, 4, 0, cccc2, MATRIX_FONT_CFG_5x7_INDEX);
+      I2Colorduino.Refresh();
+      break;
+    case I2C_ACTION_NOTHING_TO_DO:
+    default:
       break;
   }
 }
@@ -161,7 +185,7 @@ void I2ColorduinoObject::Dispatch() {
 void I2ColorduinoObject::receiveEvent(int num) {
 
   byte tmpCommand[32];
-  
+
   // Drop Wrong Message
   if (Wire.read() != START_OF_DATA) {
     //else handle error by reading remaining data until end of data marker (if available)
@@ -300,7 +324,7 @@ void I2ColorduinoObject::updateText(byte text, byte x, byte y, PixelRGB color) {
 
   for (i = 0; i < 8; i++)
   {
-//    chrtemp[j] = pgm_read_byte(&(font8_8[Char][i]));
+    //    chrtemp[j] = pgm_read_byte(&(font8_8[Char][i]));
     j++;
   }
   for (i = 0; i < 8; i++)
@@ -323,40 +347,59 @@ void I2ColorduinoObject::updateText(byte text, byte x, byte y, PixelRGB color) {
 
 
 
-void I2ColorduinoObject::updateMatrixFontText(byte text, byte x, byte y, PixelRGB color) {
+void I2ColorduinoObject::updateMatrixFontText(byte text, byte x, byte y, PixelRGB color, byte matrixIndex = 0) {
 
-  unsigned char i, j = 0;
+  unsigned char i, j , k = 0;
   unsigned char chrtmp, chrtmp_H, chrtmp_L;
+  unsigned char _MatrixFontIndex, * _MatrixFontPointer;
+  unsigned char _ByteLength, _MatrixWidth, _MatrixHeight, _TotalBitLength, _BitMask;
+
+  switch (matrixIndex) {
+    case MATRIX_FONT_CFG_3x5_INDEX:
+      _MatrixFontPointer = (unsigned char *)MATRIX_FONT_CFG_3x5;
+      break;
+    case MATRIX_FONT_CFG_5x7_INDEX:
+      _MatrixFontPointer = (unsigned char *)MATRIX_FONT_CFG_5x7;
+      break;
+    default:
+      break;
+  }
+
+  _MatrixFontIndex = matrixIndex;
+
+
+  _MatrixWidth = pgm_read_byte(&MatrixFrontConfig[_MatrixFontIndex][MATRIX_FONT_CFG_COMMON_WIDTH]);
+  _MatrixHeight = pgm_read_byte(&MatrixFrontConfig[_MatrixFontIndex][MATRIX_FONT_CFG_COMMON_HEIGHT]);
+
+  _TotalBitLength = _MatrixWidth * _MatrixHeight;
+
+  _ByteLength = (int)(_MatrixWidth * _MatrixHeight / 8) + 1;
+  _BitMask = 8 - _MatrixWidth * _MatrixHeight % 8;
 
   PixelRGB *q = Colorduino.GetPixel(0, 0);
 
-  chrtmp_H = pgm_read_byte(&(MatrixFrontA35[text][0]));
-  chrtmp_L = pgm_read_byte(&(MatrixFrontA35[text][1]));
-
-  for (i = 0 ; i < 7; i++) {
-    chrtmp_H = chrtmp_H << 1;
-    if (chrtmp_H & 0x80) {
-      //updateMatrixFontDot(j % 3 + x, j / 3 + y, color, 0);
-      alphaBlend_Pixel_XYRGBA(q, j % 3 + x, j / 3 + y, color.r, color.g, color.b, 0);
+  for (i = 0; i < _ByteLength; i++) {
+    chrtmp = pgm_read_byte(&(_MatrixFontPointer[text * _ByteLength + i]));;
+    for (j = 0; j < 8; j++) {
+      if (_BitMask == 0) {
+        if (chrtmp & 0x80) { // TODO:_BitMask
+          alphaBlend_Pixel_XYRGBA(q, k % _MatrixWidth + x, k / _MatrixWidth + y, color.r, color.g, color.b, 0);
+        } else {
+          ;
+        }
+        k++;
+        ;
+      } else {
+        _BitMask--;
+      }
+      chrtmp = chrtmp <<  1;
     }
-    else {
-      //updateMatrixFontDot(j % 3 + x, j / 3 + y, color, 255);
-    }
-    j++;
-  }
-  for (i = 0 ; i < 8; i++) {
-    if (chrtmp_L & 0x80) {
-      //updateMatrixFontDot(j % 3 + x, j / 3 + y, color, 0);
-      alphaBlend_Pixel_XYRGBA(q, j % 3 + x, j / 3 + y, color.r, color.g, color.b, 0);
-    }
-    else {
-      //updateMatrixFontDot(j % 3 + x, j / 3 + y, color, 255);
-    }
-    chrtmp_L = chrtmp_L <<  1;
-    j++;
   }
 
 }
+
+
+
 void I2ColorduinoObject::updateMatrixFontDot(byte x, byte y, PixelRGB color, byte alpha) {
 
   /*

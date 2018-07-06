@@ -27,6 +27,7 @@
 #define I2C_ACTION_CONFIG 0x04
 #define I2C_ACTION_UPDATE_TEXT 0x05
 
+
 class I2ColorduinoObject {
   private:
     static byte command[32];
@@ -39,6 +40,7 @@ class I2ColorduinoObject {
     static byte offset_y;
     static byte textt;
     //static byte textLayer[ColorduinoScreenWidth * ColorduinoScreenHeight * 4];
+    void InitMatrixFont();
 
   public:
     void Init();
@@ -57,7 +59,7 @@ class I2ColorduinoObject {
     void alphaBlend_Pixel_XYRGBA2(PixelRGB * , byte, byte, byte, byte, byte, byte);
     void Offset(byte, byte);
     void updateText(byte, byte, byte, PixelRGB);
-    void updateMatrixFontText(byte, byte, byte, PixelRGB);
+    void updateMatrixFontText(byte, byte, byte, PixelRGB, byte matrixIndex = 0);
     void updateMatrixFontTextOffset(byte, byte, byte, byte, byte, byte, byte,  PixelRGB);
     void CombineTextLayer();
     void updateMatrixFontDot(byte, byte, PixelRGB, byte);
